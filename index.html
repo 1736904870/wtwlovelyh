@@ -8671,6 +8671,13 @@ const delay = minDelay + Math.random() * (maxDelay - minDelay);
         this.appData.messages.push(firstMessage);
         this.renderMessages();
         
+        // 第一条消息立即发系统通知（后台推送）
+        {
+            const partnerName = this.appData.otherInfo?.nickname || '对方';
+            const firstBody = firstMsg.type === 'sticker' ? '[表情包]' : (firstMsg.data || '发来了一条消息');
+            this.sendSimpleNotification(partnerName, firstBody);
+        }
+        
         if (messagesToSend.length > 1) {
             for (let i = 1; i < messagesToSend.length; i++) {
                 // 每条后续消息也随机选择群成员（如果需要，可以改为沿用第一条，这里选择独立随机）
@@ -8695,6 +8702,13 @@ const delay = minDelay + Math.random() * (maxDelay - minDelay);
                     
                     this.appData.messages.push(additionalMessage);
                     this.renderMessages();
+
+                    // 每条消息都单独发一条系统通知（表情包显示 [表情包]）
+                    {
+                        const partnerName = this.appData.otherInfo?.nickname || '对方';
+                        const msgBody = msg.type === 'sticker' ? '[表情包]' : (msg.data || '发来了一条消息');
+                        this.sendSimpleNotification(partnerName, msgBody);
+                    }
                     
                     if (i === messagesToSend.length - 1) {
                         const stickerCount = messagesToSend.filter(m => m.type === 'sticker').length;
@@ -8876,6 +8890,15 @@ const delay = minDelay + Math.random() * (maxDelay - minDelay);
             `对方回复了${selectedPhrases.length}张塔罗牌 🔮`;
         
         this.showNotification(notificationText);
+
+        // 发送系统通知（塔罗回复，后台推送）
+        const tarotDelay = selectedPhrases.length > 1 ? (selectedPhrases.length - 1) * 1000 + 600 : 0;
+        setTimeout(() => {
+            const partnerName = this.appData.otherInfo?.nickname || '对方';
+            const tarotText = selectedPhrases.slice(0, 3).join(' ');
+            this.sendSimpleNotification(partnerName, tarotText);
+        }, tarotDelay);
+
         this.saveAllData();
     }
     
@@ -8984,6 +9007,17 @@ const delay = minDelay + Math.random() * (maxDelay - minDelay);
                 }
                 
                 this.showNotification('对方主动发送了消息');
+
+                // 发送系统通知（主动发消息，逐条推送，后台也能收到）
+                const autoMsgsList = messagesToSend || [];
+                const autoPartnerName = this.appData.otherInfo?.nickname || '对方';
+                autoMsgsList.forEach((m, idx) => {
+                    setTimeout(() => {
+                        const autoBody = m.type === 'sticker' ? '[表情包]' : (m.data || '发来了一条消息');
+                        this.sendSimpleNotification(autoPartnerName, autoBody);
+                    }, idx * 900);
+                });
+
                 this.saveAllData();
             }
         }, delay);
@@ -12101,6 +12135,13 @@ const delay = minDelay + Math.random() * (maxDelay - minDelay);
         notification.textContent = message;
         document.body.appendChild(notification);
         setTimeout(() => { if (notification.parentNode) notification.remove(); }, 3000);
+
+        // 同时发送系统通知（后台推送）：对方相关提示统一走这里
+        if (message.includes('对方') || message.includes('回复') || message.includes('发来') || message.includes('收到')) {
+            let title = this.appData?.appearanceSettings?.appTitle || this.appData?.otherInfo?.nickname || '梦角爱人';
+            let body = message.length > 100 ? message.substring(0, 100) + '...' : message;
+            this.sendSimpleNotification(title, body);
+        }
     }
 
     // ========================
